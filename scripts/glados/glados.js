@@ -17,7 +17,7 @@ Platform : Quantumult X / Loon / Surge
 ^https://glados\.space/console/account$ url script-request-header https://raw.githubusercontent.com/GUIEROOR/Scripthub/refs/heads/main/scripts/glados/glados.js
 
 [task_local]
-10 7 * * * https://raw.githubusercontent.com/GUIEROOR/Scripthub/refs/heads/main/scripts/glados/glados.js, tag=GLaDOS 签到, enabled=true
+30 2 * * * https://raw.githubusercontent.com/GUIEROOR/Scripthub/refs/heads/main/scripts/glados/glados.js, tag=GLaDOS 签到, enabled=true
 
 [MITM]
 hostname = %APPEND% glados.network, railgun.info, glados.vip, glados.one, glados.space
