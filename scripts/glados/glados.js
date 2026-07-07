@@ -266,7 +266,7 @@ function checkinForAccount(cookie, domain, accountIndex) {
   }).then(function (pr) {
     pointsResult = pr;
     exchangeResult = "跳过(积分不足)";
-    if (pointsResult.pointsNum >= 500) {
+    if (pointsResult.pointsNum >= 1000) {
       return exchange(cookie, domain, EXCHANGE_PLAN);
     }
     return "跳过(积分不足)";
