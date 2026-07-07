@@ -10,14 +10,14 @@ Platform : Quantumult X / Loon / Surge
 支持 glados.network、railgun.info、glados.vip、glados.one、glados.space，各域名支持多账号。
 
 [rewrite_local]
-^https://glados\.network/console/account$ url script-request-header https://raw.githubusercontent.com/curtinp118/Scripthub/main/scripts/glados/glados.js
-^https://railgun\.info/console/account$ url script-request-header https://raw.githubusercontent.com/curtinp118/Scripthub/main/scripts/glados/glados.js
-^https://glados\.vip/console/account$ url script-request-header https://raw.githubusercontent.com/curtinp118/Scripthub/main/scripts/glados/glados.js
-^https://glados\.one/console/account$ url script-request-header https://raw.githubusercontent.com/curtinp118/Scripthub/main/scripts/glados/glados.js
-^https://glados\.space/console/account$ url script-request-header https://raw.githubusercontent.com/curtinp118/Scripthub/main/scripts/glados/glados.js
+^https://glados\.network/console/account$ url script-request-header https://raw.githubusercontent.com/GUIEROOR/Scripthub/refs/heads/main/scripts/glados/glados.js
+^https://railgun\.info/console/account$ url script-request-header https://raw.githubusercontent.com/GUIEROOR/Scripthub/refs/heads/main/scripts/glados/glados.js
+^https://glados\.vip/console/account$ url script-request-header https://raw.githubusercontent.com/GUIEROOR/Scripthub/refs/heads/main/scripts/glados/glados.js
+^https://glados\.one/console/account$ url script-request-header https://raw.githubusercontent.com/GUIEROOR/Scripthub/refs/heads/main/scripts/glados/glados.js
+^https://glados\.space/console/account$ url script-request-header https://raw.githubusercontent.com/GUIEROOR/Scripthub/refs/heads/main/scripts/glados/glados.js
 
 [task_local]
-10 7 * * * https://raw.githubusercontent.com/curtinp118/Scripthub/main/scripts/glados/glados.js, tag=GLaDOS 签到, enabled=true
+10 7 * * * https://raw.githubusercontent.com/GUIEROOR/Scripthub/refs/heads/main/scripts/glados/glados.js, tag=GLaDOS 签到, enabled=true
 
 [MITM]
 hostname = %APPEND% glados.network, railgun.info, glados.vip, glados.one, glados.space
