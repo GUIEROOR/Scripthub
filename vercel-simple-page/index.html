@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hello Vercel</title>
+<style>
+  *{box-sizing:border-box}html,body{margin:0;min-height:100%;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+  body{min-height:100vh;display:grid;place-items:center;overflow:hidden;color:#f7f8ff;background:
+    radial-gradient(circle at 20% 20%,rgba(110,91,255,.35),transparent 32%),
+    radial-gradient(circle at 80% 30%,rgba(0,210,255,.24),transparent 28%),
+    linear-gradient(135deg,#070914,#0c1024 50%,#11182f)}
+  body:before{content:"";position:fixed;inset:-30%;background:conic-gradient(from 0deg,transparent,rgba(125,103,255,.1),transparent 30%,rgba(0,220,255,.08),transparent 60%);animation:spin 16s linear infinite}
+  .card{position:relative;width:min(92vw,760px);padding:64px 44px;border:1px solid rgba(255,255,255,.14);border-radius:28px;background:rgba(255,255,255,.07);backdrop-filter:blur(18px);box-shadow:0 30px 100px rgba(0,0,0,.42);text-align:center}
+  .badge{display:inline-flex;gap:8px;align-items:center;padding:8px 12px;border-radius:999px;background:rgba(255,255,255,.08);font-size:13px;color:#cfd6ff;border:1px solid rgba(255,255,255,.1)}
+  .dot{width:8px;height:8px;border-radius:50%;background:#4df2a5;box-shadow:0 0 18px #4df2a5}
+  h1{font-size:clamp(42px,9vw,82px);line-height:.98;margin:24px 0 18px;letter-spacing:-.05em;background:linear-gradient(90deg,#fff,#b9c6ff,#7be7ff);-webkit-background-clip:text;color:transparent}
+  p{margin:0 auto 30px;max-width:560px;color:#aeb8d9;font-size:17px;line-height:1.7}
+  button{border:0;border-radius:14px;padding:14px 22px;font-weight:700;font-size:15px;color:#0a1020;background:linear-gradient(90deg,#fff,#8ee7ff);cursor:pointer;box-shadow:0 10px 32px rgba(90,199,255,.2);transition:.2s transform,.2s box-shadow}
+  button:hover{transform:translateY(-2px);box-shadow:0 16px 38px rgba(90,199,255,.28)}
+  #msg{margin-top:18px;min-height:24px;color:#dfe5ff;font-size:14px}
+  @keyframes spin{to{transform:rotate(1turn)}}
+</style>
+</head>
+<body>
+  <main class="card">
+    <div class="badge"><span class="dot"></span> Vercel deployment online</div>
+    <h1>Hello, World.</h1>
+    <p>这是一个由 ChatGPT 为你创建并发布的简单前端页面。纯 HTML / CSS / JavaScript，轻量、响应式，并带一点未来感。</p>
+    <button id="btn">点击试试</button>
+    <div id="msg"></div>
+  </main>
+<script>
+  const btn=document.getElementById('btn'),msg=document.getElementById('msg');
+  btn.addEventListener('click',()=>{msg.textContent='✨ 页面交互正常，部署成功！';});
+</script>
+</body>
+</html>
