@@ -1,0 +1,13 @@
+#!name=GLaDOS 自动签到 v1.4 Loon
+#!desc=GLaDOS / Railgun 自动签到 + 积分兑换｜稳定抓 Cookie｜按邮箱更新｜自动清理失效 Cookie
+#!author=GUIEROOR / Curtinp118
+#!homepage=https://github.com/GUIEROOR/Scripthub
+#!icon=https://raw.githubusercontent.com/fmz200/wool_scripts/main/icons/apps/GlaDos.png
+#!tag=Check-in
+
+[Script]
+http-request ^https://(glados\.network|railgun\.info|glados\.vip|glados\.one|glados\.space)/(console/account(?:[/?#].*)?|api/user/(?:status|points)(?:[?#].*)?)$ script-path=https://raw.githubusercontent.com/GUIEROOR/Scripthub/main/scripts/glados/glados-loon.js, requires-body=false, timeout=15, tag=GLaDOS抓包v1.4, enable=true
+cron "30 6 * * *" script-path=https://raw.githubusercontent.com/GUIEROOR/Scripthub/main/scripts/glados/glados-loon.js, timeout=120, tag=GLaDOS签到v1.4, enable=true
+
+[MITM]
+hostname = glados.network, railgun.info, glados.vip, glados.one, glados.space
