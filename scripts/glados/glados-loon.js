@@ -1,7 +1,7 @@
 /******************************
 脚本功能：GLaDOS / Railgun 自动签到 + 积分兑换（Loon 专用）
-Version  : v1.4.0-loon
-更新时间：2026-09-26
+Version  : v1.4.1-loon
+更新时间：2026-10-26
 仓库    ：GUIEROOR/Scripthub
 Platform : Loon
 
@@ -9,12 +9,12 @@ Platform : Loon
 1. 更稳定抓取 Cookie：监听 /console/account、/api/user/status、/api/user/points
 2. 按邮箱识别账号，同账号重新登录自动替换旧 Cookie
 3. 使用独立存储键，不读取 v1.3.0 的旧 Cookie
-4. 同邮箱跨域只保留一份有效账号，避免重复签到
+4. GLaDOS 主站域名同邮箱互通；railgun.info 作为独立会员体系单独保存和签到
 5. 连续 3 次验证失败自动移除失效账号
 ******************************/
 
 var SCRIPT_NAME = "GLaDOS Loon";
-var SCRIPT_VERSION = "v1.4.0-loon";
+var SCRIPT_VERSION = "v1.4.1-loon";
 var STORE_KEY = "GLaDOS_Loon_Accounts_v140";
 var EXCHANGE_PLAN = "plan500";
 var EXCHANGE_MIN_POINTS = 500;
@@ -54,6 +54,16 @@ function saveAccounts(accounts) {
 
 function normalizeEmail(email) {
   return String(email || "").trim().toLowerCase();
+}
+
+// 会员体系：railgun.info 与 GLaDOS 主站会员数据不互通。
+// glados.network / glados.vip / glados.one / glados.space 视为同一 GLaDOS 体系。
+function getAccountRealm(domain) {
+  return String(domain || "").toLowerCase() === "railgun.info" ? "railgun" : "glados";
+}
+
+function getAccountKey(email, domain) {
+  return normalizeEmail(email) + "::" + getAccountRealm(domain);
 }
 
 function getHeader(headers, name) {
@@ -178,12 +188,13 @@ function exchange(domain, cookie) {
 
 function upsertAccount(domain, cookie, email) {
   var accounts = loadAccounts();
-  var normalized = normalizeEmail(email);
+  var accountKey = getAccountKey(email, domain);
+  var realm = getAccountRealm(domain);
   var now = new Date().toISOString();
   var found = -1;
 
   for (var i = 0; i < accounts.length; i++) {
-    if (normalizeEmail(accounts[i].email) === normalized) {
+    if (getAccountKey(accounts[i].email, accounts[i].domain) === accountKey) {
       found = i;
       break;
     }
@@ -192,6 +203,7 @@ function upsertAccount(domain, cookie, email) {
   var record = {
     email: email,
     domain: domain,
+    realm: realm,
     cookie: cookie,
     updatedAt: now,
     failCount: 0
@@ -236,10 +248,10 @@ function captureCookie() {
     var action = result.type === "new" ? "新账号已保存" : "Cookie 已更新";
     console.log("[GLaDOS] " + action + ": " + status.email + " | " + domain);
     if (result.oldDomain && result.oldDomain !== domain) {
-      console.log("[GLaDOS] 同邮箱跨域更新: " + result.oldDomain + " -> " + domain);
+      console.log("[GLaDOS] 同会员体系跨域更新: " + result.oldDomain + " -> " + domain);
     }
 
-    notify("GLaDOS 抓包", action, status.email + " | " + domain + " | 共 " + result.total + " 个账号");
+    notify("GLaDOS 抓包", action, status.email + " | " + domain + " | " + getAccountRealm(domain) + " | 共 " + result.total + " 个账户");
     $done({});
   }).catch(function (e) {
     console.log("[GLaDOS] 抓包异常: " + e);
