@@ -34,7 +34,7 @@ async function run(site, options = {}) {
   }
   const context = {
     $argument: options.args || {},
-    $script: { name: options.manual ? '手动执行' : '自动执行' },
+    $script: { name: options.scriptName || (options.manual ? '手动执行' : '自动执行') },
     $httpClient: { get: send('GET'), post: send('POST') },
     $persistentStore: { read: k => store[k], write: (v, k) => { if (options.writeFails) return false; store[k] = v; return true; } },
     $notification: { post: (...args) => notifications.push(args) },
@@ -147,10 +147,11 @@ test('capture stores only authenticated response and does not issue requests', a
   assert.equal(JSON.parse(r.store[key('linux-sb')]).ua, 'Safari');
   assert.equal(r.calls.length, 0); assert.equal(r.notifications.length, 1);
 });
-test('challenge capture preserves known credentials without notification spam', async () => {
+test('challenge capture preserves known credentials and explains the rejection', async () => {
   const r = await run('linux-sb', { capture: { request: { url: sbBase + '/', headers: { Cookie: 'bad=NEW' } }, response: response(challenge) } });
   assert.equal(JSON.parse(r.store[key('linux-sb')]).cookie, 'auth=SECRET');
-  assert.equal(r.notifications.length, 0);
+  assert.equal(r.notifications.length, 1);
+  assert.match(r.notifications[0][2], /人机验证/);
 });
 test('Qianmoju capture accepts authenticated account and current host', async () => {
   const r = await run('qianmoju', { noRecord: true, capture: { request: { url: 'https://1000qm.vip/plugin.php?id=dsu_paulsign:sign', headers: { Cookie: 'auth=SECRET' } }, response: response(qmAuth) } });
@@ -183,9 +184,9 @@ test('old task cannot overwrite a freshly captured record', async () => {
   const r = await run('linux-sb', { responses: [{ ...response(sbAuth), mutate: store => { store[key('linux-sb')] = fresh; } }] });
   assert.equal(r.store[key('linux-sb')], fresh);
 });
-test('node and notification options are applied', async () => {
-  const r = await run('linux-sb', { args: { sbNode: '我的策略', notifySuccess: true }, responses: [response(sbAuth)] });
-  assert.equal(r.calls[0].node, '我的策略'); assert.equal(r.notifications.length, 1);
+test('requests use native rule routing and success notification is configurable', async () => {
+  const r = await run('linux-sb', { args: { notifySuccess: true }, responses: [response(sbAuth)] });
+  assert.equal(r.calls[0].node, undefined); assert.equal(r.notifications.length, 1);
 });
 test('network errors are sanitized rather than echoing credential-rich errors', async () => {
   const r = await run('linux-sb', { responses: [{ error: 'auth=SECRET' }] });
@@ -203,6 +204,36 @@ test('plugin references declared arguments and the two shipped scripts', () => {
   const declared = new Set([...argumentsSection.matchAll(/^(\w+)\s*=/gm)].map(m => m[1]));
   for (const [, ref] of plugin.matchAll(/\$\{(\w+)\}/g)) assert.ok(ref === 'url' || declared.has(ref), 'undeclared ' + ref);
   assert.equal((plugin.match(/^cron /gm) || []).length, 2);
-  assert.equal((plugin.match(/^generic /gm) || []).length, 2);
+  assert.equal((plugin.match(/^generic /gm) || []).length, 4);
+  assert.match(plugin, /DOMAIN-SUFFIX, 1000qm\.vip, PROXY/);
+  assert.match(plugin, /DOMAIN, linux\.sb, PROXY/);
+  assert.ok(!plugin.includes('qmNode'));
   for (const [, script] of plugin.matchAll(/forum-checkin\/(\w[\w-]*\.js)/g)) assert.ok(fs.existsSync(path.join(__dirname, script)));
+});
+test('capture diagnosis shows missing hook before any response without issuing requests', async () => {
+  const r = await run('qianmoju', { noRecord: true, scriptName: '阡陌居：检查凭据' });
+  assert.equal(r.calls.length, 0);
+  assert.match(r.notifications[0][2], /尚未收到可处理的页面响应/);
+});
+test('capture diagnosis never treats stored credentials as proof of current login', async () => {
+  const r = await run('linux-sb', { scriptName: 'LINUX SB：检查凭据' });
+  assert.equal(r.calls.length, 0);
+  assert.match(r.notifications[0][2], /验证是否仍有效/);
+});
+test('repeated rejected captures are throttled while preserving credentials', async () => {
+  const r = await run('linux-sb', { store: { [key('linux-sb') + '.capture-status']: JSON.stringify({ reason: '页面要求人机验证，请先在 Safari 手动完成验证再刷新', notifiedAt: Date.now() }) }, capture: { request: { url: sbBase + '/', headers: { Cookie: 'bad=NEW' } }, response: response(challenge) } });
+  assert.equal(r.notifications.length, 0);
+  assert.equal(JSON.parse(r.store[key('linux-sb')]).cookie, 'auth=SECRET');
+});
+test('non-HTML capture is ignored quietly', async () => {
+  const r = await run('qianmoju', { capture: { request: { url: qmBase + '/plugin.php?ajax=1', headers: { Cookie: 'auth=SECRET' } }, response: response('{}', 200, { 'Content-Type': 'application/json' }) } });
+  assert.equal(r.notifications.length, 0);
+});
+test('Qianmoju capture rule matches homepage and reordered/encoded sign query', () => {
+  const plugin = fs.readFileSync(path.join(__dirname, '../../forum-checkin.lpx'), 'utf8');
+  const line = plugin.split('\n').find(l => l.startsWith('response if') && l.includes('1000qm'));
+  const match = line.match(/~= \/(.*)\/i then/);
+  const re = new RegExp(match[1], 'i');
+  for (const url of [qmBase + '/', qmBase + '/forum.php', qmBase + '/plugin.php?mobile=2&id=dsu_paulsign%3Asign', qmBase + '/thread-12-1-1.html']) assert.ok(re.test(url), url);
+  for (const url of [qmBase + '/static/image/logo.png', qmBase + '.evil.invalid/', 'https://evil.invalid/forum.php']) assert.ok(!re.test(url), url);
 });

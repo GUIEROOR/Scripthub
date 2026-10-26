@@ -1,5 +1,5 @@
 /*
- * Forum Check-in v1.0.0 — standalone Loon runtime; no Node/browser dependencies.
+ * Forum Check-in v1.1.0 — standalone Loon runtime; no Node/browser dependencies.
  * HTTP flow and login-evidence design adapted from HughRyu/SignMate (MIT).
  * See THIRD_PARTY_LICENSES.md. Credentials stay in Loon local storage.
  */
@@ -10,7 +10,6 @@
   var KEY = "GUIEROOR.ForumCheckin.v1." + SITE;
   var args = typeof $argument === "object" && $argument ? $argument : {};
   var manual = typeof $script !== "undefined" && /手动/.test($script.name || "");
-  var node = String(args[SITE === "qianmoju" ? "qmNode" : "sbNode"] || "").trim();
   var ended = false;
   var requests = 0;
 
@@ -128,7 +127,6 @@
       if (++requests > 7) fail("请求次数达到上限，请手动检查页面");
       var options = { url: url, timeout: 12000, "auto-redirect": false, "auto-cookie": false, insecure: false,
         headers: { Cookie: record.cookie, "User-Agent": record.ua || "Mozilla/5.0", Accept: "text/html,application/xhtml+xml", Referer: referer || record.base } };
-      if (node) options.node = node;
       if (method === "POST") {
         options.headers["Content-Type"] = "application/x-www-form-urlencoded;charset=UTF-8";
         options.headers.Origin = origin;
@@ -155,16 +153,38 @@
     }
     fail("页面跳转次数过多，请手动检查");
   }
+  function captureNote(reason) {
+    var statusKey = KEY + ".capture-status";
+    var previous;
+    try { previous = JSON.parse($persistentStore.read(statusKey) || "null"); } catch (_) { previous = null; }
+    var now = Date.now();
+    var notify = !previous || previous.reason !== reason || now - Number(previous.notifiedAt || 0) > 300000;
+    var notifiedAt = notify ? now : previous.notifiedAt;
+    $persistentStore.write(JSON.stringify({ reason: reason, time: now, notifiedAt: notifiedAt }), statusKey);
+    console.log("[" + NAME + "] 抓取未完成：" + reason + "；原凭据保留");
+    if (notify) $notification.post(NAME, "抓取未完成", reason + "；原凭据保留");
+    ended = true; $done({});
+  }
+  function diagnose() {
+    var record = readRecord(), status;
+    try { status = JSON.parse($persistentStore.read(KEY + ".capture-status") || "null"); } catch (_) { status = null; }
+    var available = record && validCookie(record.cookie);
+    var message = available ? "已保存当前站点凭据；抓取时间 " + new Date(record.capturedAt || 0).toLocaleString() + "。请手动运行任务验证是否仍有效。" : "尚未保存凭据。确认插件、抓取开关、MitM 和证书信任均已开启，再用 Safari 刷新已登录页面。";
+    if (status) message += " 最近抓取：" + status.reason;
+    else if (!available) message += " 尚未收到可处理的页面响应。";
+    finish(Boolean(available), message, true);
+  }
   function capture() {
     if (typeof $response === "undefined" || String($request.method || "GET").toUpperCase() !== "GET") return finish(true, "跳过非页面响应", false);
     var p = parseUrl($request.url), html = $response.body || "";
     var cookie = header($request.headers, "cookie");
     var status = Number($response.statusCode || $response.status);
-    if (status !== 200 || !authenticated(html, p.origin) || !validCookie(cookie)) {
-      // Public pages, login forms and challenges must never replace a working record.
-      console.log("[" + NAME + "] 未抓取：请打开已登录的" + (SITE === "qianmoju" ? "签到页" : "首页") + "；原凭据保留");
-      ended = true; $done({}); return;
-    }
+    var contentType = String(header($response.headers, "content-type") || "");
+    if (contentType && !/text\/html|application\/xhtml\+xml/i.test(contentType)) { ended = true; $done({}); return; }
+    if (status !== 200) return captureNote("页面 HTTP " + status + "，请刷新正常的已登录页面");
+    if (challenge(html)) return captureNote("页面要求人机验证，请先在 Safari 手动完成验证再刷新");
+    if (!validCookie(cookie)) return captureNote("此请求未携带可用 Cookie，请登录后刷新页面");
+    if (!authenticated(html, p.origin)) return captureNote("页面中未确认登录态，请打开桌面版已登录首页或签到页再刷新");
     cookie = mergeCookies(cookie, $response.headers || {});
     var previous = readRecord();
     var record = { base: p.origin, cookie: cookie, ua: header($request.headers, "user-agent") || "", capturedAt: Date.now() };
@@ -172,6 +192,7 @@
       ended = true; $done({}); return;
     }
     saveRecord(record);
+    $persistentStore.write(JSON.stringify({ reason: "登录凭据已成功保存", time: Date.now() }), KEY + ".capture-status");
     finish(true, "登录凭据已保存（当前站点单账号）；可关闭此站点抓取开关，再手动测试", true);
   }
     async function execute(record) {
@@ -182,6 +203,7 @@
 
   async function run() {
     if (typeof $request !== "undefined") { capture(); return; }
+    if (typeof $script !== "undefined" && /检查凭据/.test($script.name || "")) { diagnose(); return; }
     var record = readRecord();
     if (!record || !validCookie(record.cookie)) fail("尚未保存 Cookie，请开启抓取开关并在 Safari 登录对应站点");
     parseUrl(record.base);

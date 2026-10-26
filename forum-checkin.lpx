@@ -1,29 +1,34 @@
 #!name = 阡陌居签到 + LINUX SB 保活
-#!desc = v1.0.0｜一个插件，两个独立任务。先开启抓取，在 Safari 登录并访问指定页面，收到凭据保存通知后关闭抓取。每站点保存一个账号；仅失败默认通知。执行时间使用手机本地时区。
+#!desc = v1.1.0｜阡陌居签到与LINUX SB保活。已登录也须刷新网页抓取Cookie；收不到提示可运行“检查凭据”。在插件原生策略设置中选择出口；两个站点共用此选择。执行时间使用手机本地时区。
 #!author = GUIEROOR
 #!homepage = https://github.com/GUIEROOR/Scripthub/tree/main/scripts/forum-checkin
+#!icon = https://raw.githubusercontent.com/GUIEROOR/Scripthub/main/scripts/forum-checkin/icon.png?v=1.1.0
 #!loon_version = 3.5.1(983)
 #!date = 2026-10-26
 #!tag = 签到,保活
 
 [Argument]
-qmCapture = switch,true,tag=阡陌居：抓取 Cookie,desc=登录后打开阡陌居签到页；收到保存通知后关闭
+qmCapture = switch,true,tag=阡陌居：抓取 Cookie,desc=已登录也须刷新首页或签到页；收到保存通知后关闭
 sbCapture = switch,true,tag=LINUX SB：抓取 Cookie,desc=登录后打开 linux.sb 首页；收到保存通知后关闭
 qmEnabled = switch,true,tag=阡陌居：每日签到,desc=只控制自动任务；仍可手动执行
 sbEnabled = switch,true,tag=LINUX SB：登录访问保活,desc=只访问首页并验证登录；不签到领奖或发帖
 qmCron = input,"35 8 * * *",tag=阡陌居：执行时间,desc=默认每天08:35；五段Cron；使用手机本地时区
 sbCron = input,"20 13 * * *",tag=LINUX SB：执行时间,desc=默认每天13:20；五段Cron；使用手机本地时区
-qmNode = input,"",tag=阡陌居：节点或策略组,desc=留空遵循现有分流；可填DIRECT或实际节点/策略组名
-sbNode = input,"",tag=LINUX SB：节点或策略组,desc=留空遵循现有分流；建议与Safari抓取时使用相同出口
 notifySuccess = switch,false,tag=自动任务成功通知,desc=默认只通知失败；手动运行和凭据更新始终通知
 
+[Rule]
+DOMAIN-SUFFIX, 1000qm.vip, PROXY
+DOMAIN, linux.sb, PROXY
+
 [Script]
-response if ${url} ~= /^https:\/\/(?:www\.)?1000qm\.vip\/plugin\.php\?id=dsu_paulsign:sign(?:&.*)?$/i then script("https://raw.githubusercontent.com/GUIEROOR/Scripthub/main/scripts/forum-checkin/qianmoju.js") with enable=${qmCapture}, requires_body=true, timeout=10, tag="阡陌居：抓取凭据"
-response if ${url} ~= /^https:\/\/linux\.sb\/(?:\?[^#]*)?$/i then script("https://raw.githubusercontent.com/GUIEROOR/Scripthub/main/scripts/forum-checkin/linux-sb.js") with enable=${sbCapture}, requires_body=true, timeout=10, tag="LINUX SB：抓取凭据"
-cron ${qmCron} then script("https://raw.githubusercontent.com/GUIEROOR/Scripthub/main/scripts/forum-checkin/qianmoju.js", {${qmNode}, ${notifySuccess}}) with enable=${qmEnabled}, timeout=100, tag="阡陌居：自动签到"
-cron ${sbCron} then script("https://raw.githubusercontent.com/GUIEROOR/Scripthub/main/scripts/forum-checkin/linux-sb.js", {${sbNode}, ${notifySuccess}}) with enable=${sbEnabled}, timeout=100, tag="LINUX SB：自动保活"
-generic then script("https://raw.githubusercontent.com/GUIEROOR/Scripthub/main/scripts/forum-checkin/qianmoju.js", {${qmNode}, ${notifySuccess}}) with timeout=100, tag="阡陌居：手动签到"
-generic then script("https://raw.githubusercontent.com/GUIEROOR/Scripthub/main/scripts/forum-checkin/linux-sb.js", {${sbNode}, ${notifySuccess}}) with timeout=100, tag="LINUX SB：手动保活"
+response if ${url} ~= /^https:\/\/(?:www\.)?1000qm\.vip\/(?:[^?#]*\.(?:php|html))?(?:\?[^#]*)?$/i then script("https://raw.githubusercontent.com/GUIEROOR/Scripthub/main/scripts/forum-checkin/qianmoju.js?v=1.1.0") with enable=${qmCapture}, requires_body=true, timeout=10, tag="阡陌居：抓取凭据"
+response if ${url} ~= /^https:\/\/linux\.sb\/(?:\?[^#]*)?$/i then script("https://raw.githubusercontent.com/GUIEROOR/Scripthub/main/scripts/forum-checkin/linux-sb.js?v=1.1.0") with enable=${sbCapture}, requires_body=true, timeout=10, tag="LINUX SB：抓取凭据"
+cron ${qmCron} then script("https://raw.githubusercontent.com/GUIEROOR/Scripthub/main/scripts/forum-checkin/qianmoju.js?v=1.1.0", {${notifySuccess}}) with enable=${qmEnabled}, timeout=100, tag="阡陌居：自动签到"
+cron ${sbCron} then script("https://raw.githubusercontent.com/GUIEROOR/Scripthub/main/scripts/forum-checkin/linux-sb.js?v=1.1.0", {${notifySuccess}}) with enable=${sbEnabled}, timeout=100, tag="LINUX SB：自动保活"
+generic then script("https://raw.githubusercontent.com/GUIEROOR/Scripthub/main/scripts/forum-checkin/qianmoju.js?v=1.1.0", {${notifySuccess}}) with timeout=100, tag="阡陌居：手动签到"
+generic then script("https://raw.githubusercontent.com/GUIEROOR/Scripthub/main/scripts/forum-checkin/linux-sb.js?v=1.1.0", {${notifySuccess}}) with timeout=100, tag="LINUX SB：手动保活"
+generic then script("https://raw.githubusercontent.com/GUIEROOR/Scripthub/main/scripts/forum-checkin/qianmoju.js?v=1.1.0") with timeout=10, tag="阡陌居：检查凭据"
+generic then script("https://raw.githubusercontent.com/GUIEROOR/Scripthub/main/scripts/forum-checkin/linux-sb.js?v=1.1.0") with timeout=10, tag="LINUX SB：检查凭据"
 
 [MitM]
 hostname = www.1000qm.vip, 1000qm.vip, linux.sb

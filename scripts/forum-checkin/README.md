@@ -1,6 +1,6 @@
 # 阡陌居每日签到 + LINUX SB 登录访问保活
 
-版本：1.0.0。一个 Loon 插件入口、两个独立脚本和任务。无需 VPS、Docker、Node.js、BoxJS 或 CookieCloud。要求 Loon 3.5.1 (983) 或以上（插件使用新版 Script 语法）。
+版本：1.1.0。一个 Loon 插件入口、两个独立脚本和任务。无需 VPS、Docker、Node.js、BoxJS 或 CookieCloud。要求 Loon 3.5.1 (983) 或以上（插件使用新版 Script 语法）。
 
 ## 安装与首次使用
 
@@ -10,8 +10,8 @@
 https://raw.githubusercontent.com/GUIEROOR/Scripthub/main/forum-checkin.lpx
 ```
 
-1. 开启插件、MitM，并确认 Loon 的 CA 证书已安装且受信任。插件只添加两个站点的主机名，不修改现有分流规则。
-2. 保持两个“抓取 Cookie”开关开启。在 Safari 登录自己的阡陌居账号，然后打开 `https://www.1000qm.vip/plugin.php?id=dsu_paulsign:sign`。如账号使用无 www 域名，请打开对应域名的同一路径；脚本使用实际抓取的域名，不跨域发送凭据。
+1. 开启插件、MitM，并确认 Loon 的 CA 证书已安装且受信任。插件添加两个站点的 MitM 主机名和 PROXY 域名规则。在插件的原生策略设置中点击选择出口，不需要填写策略名称；两个站点共用这一个策略映射，Safari 与脚本请求均遵循相应规则。若需两个站点使用不同出口，需要拆分插件或另外维护主配置规则。
+2. 保持两个“抓取 Cookie”开关开启。在 Safari 登录自己的阡陌居账号，然后刷新首页或打开 `https://www.1000qm.vip/plugin.php?id=dsu_paulsign:sign`。如账号使用无 www 域名，请打开对应域名的同一路径；脚本使用实际抓取的域名，不跨域发送凭据。
 3. 在 Safari 登录自己的 LINUX SB 账号，打开 `https://linux.sb/` 首页。必须等页面显示账号已登录；公开页、登录页和验证页不会保存凭据。
 4. 每站点收到“登录凭据已保存”通知后，关闭对应抓取开关，减少日常页面处理。
 5. 到 Loon 脚本列表，分别运行“阡陌居：手动签到”和“LINUX SB：手动保活”。确认真实账号上结果正确后，保留相应自动任务开关。
@@ -25,9 +25,9 @@ https://raw.githubusercontent.com/GUIEROOR/Scripthub/main/forum-checkin.lpx
 | 两站点抓取开关 | 开 | 成功抓取后建议关闭；过期再开 |
 | 两站点自动任务 | 开 | 独立启停和设定 Cron |
 | 自动任务成功通知 | 关 | 失败始终通知；手动执行、凭据更新始终通知 |
-| 两站点节点或策略组 | 空 | 遵循现有分流；可填 DIRECT 或实际节点/策略组名 |
+| 插件原生策略 | 由用户选择 | 在 Loon 插件策略设置中点击选择，不使用文本输入 |
 
-选择脚本节点不会改变 Safari 的分流。若指定节点，请让 Safari 登录抓取时也使用相同出口；Cookie、User-Agent 相同仍不保证网站接受脚本请求。不要为解决验证问题频繁轮换出口或请求。
+插件策略同时用于这两个站点的网页和脚本访问。Cookie、User-Agent 相同仍不保证网站接受脚本请求。不要为解决验证问题频繁轮换出口或请求。
 
 每个站点保存**一个账号**，重新抓取会替换该站点原凭据。两站点存储键独立：`GUIEROOR.ForumCheckin.v1.qianmoju` 与 `GUIEROOR.ForumCheckin.v1.linux-sb`。Cookie 与 User-Agent 只保存在 Loon 本地，脚本不上传到 GitHub、开发者服务器或第三方通知平台。不要公开凭据、抓包数据或本地存储备份。禁用/删除插件通常不等于清除已存凭据。
 
@@ -41,6 +41,8 @@ https://raw.githubusercontent.com/GUIEROOR/Scripthub/main/forum-checkin.lpx
 ## 验证与限制
 
 离线回归：`node --test scripts/forum-checkin/forum-checkin.test.cjs`。覆盖成功/重复签到、失败确认、凭据捕获、验证页、重定向、Cookie 更新、跨站隔离和通知。
+
+没有收到抓取通知时：先运行对应站点的“检查凭据”。如果显示“尚未收到可处理的页面响应”，检查插件/抓取开关、MitM 及 CA 证书信任，关闭旧网页标签，再用 Safari 打开 HTTPS 首页并刷新一次。此前已经登录并不会让新安装的插件自动取得 Cookie。若已有抓取事件，会显示拒绝原因；安全验证、未登录或无 Cookie 不会覆盖已保存的凭据，重复失败提示限流为五分钟。若手机端页面不显示账号导航，可在 Safari 请求桌面网站后刷新。
 
 这些测试使用合成响应，不访问真实账号，不能证明当前站点页面或 iOS/Loon 的实际调度已经验收。真实账号首次手动运行是必要验收；如页面变更导致不识别，请提供脱敏日志，不要提交 Cookie。
 
