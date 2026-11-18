@@ -1,6 +1,6 @@
 /******************************
 脚本功能：GLaDOS / Railgun 自动签到 + 积分兑换（Loon 专用）
-Version  : v1.6.1-loon
+Version  : v1.6.2-loon
 更新时间：2026-11-18
 仓库    ：GUIEROOR/Scripthub
 Platform : Loon
@@ -15,7 +15,7 @@ Platform : Loon
 ******************************/
 
 var SCRIPT_NAME = "GLaDOS Loon";
-var SCRIPT_VERSION = "v1.6.1-loon";
+var SCRIPT_VERSION = "v1.6.2-loon";
 var STORE_KEY = "GLaDOS_Loon_Accounts_v140";
 var EXCHANGE_PLAN = "plan500";
 var EXCHANGE_MIN_POINTS = 500;
@@ -490,6 +490,46 @@ function runOne(account) {
   });
 }
 
+function selectEnabledAccounts(accounts) {
+  var slotKey = STORE_KEY + "_SwitchSlots";
+  var raw = readStore(slotKey);
+  var slots = raw ? safeJsonParse(raw) : [];
+  if (!Array.isArray(slots) || slots.length > 4 ||
+      slots.some(function (key) { return typeof key !== "string"; })) {
+    throw new Error("账号开关绑定数据异常，请保留数据并检查日志");
+  }
+  var changed = false;
+  accounts.forEach(function (account) {
+    var key = getAccountKey(account.email, account.domain);
+    if (slots.indexOf(key) === -1 && slots.length < 4) {
+      slots.push(key);
+      changed = true;
+    }
+  });
+  if (changed && !writeStore(JSON.stringify(slots), slotKey)) {
+    throw new Error("账号开关绑定保存失败");
+  }
+  var settings = typeof $argument !== "undefined" ? $argument : {};
+  if (typeof settings === "string") settings = safeJsonParse(settings);
+  if (!settings || typeof settings !== "object") throw new Error("账号开关参数格式错误");
+  return accounts.filter(function (account) {
+    var slot = slots.indexOf(getAccountKey(account.email, account.domain));
+    // Additional accounts require an explicit management update, avoiding unchecked execution.
+    if (slot < 0) {
+      console.log("[开关] 超出四个绑定名额，已跳过 | " + account.email + " | " + account.domain);
+      return false;
+    }
+    var value = settings["account" + (slot + 1)];
+    if (value !== undefined && value !== true && value !== false && value !== "true" && value !== "false") {
+      throw new Error("账号" + (slot + 1) + "开关值无效");
+    }
+    var enabled = value !== false && value !== "false";
+    console.log("[开关] 账号" + (slot + 1) + " | " + account.email + " | " +
+      getAccountRealm(account.domain) + " | " + (enabled ? "开启" : "关闭"));
+    return enabled;
+  });
+}
+
 function runCron() {
   var accounts = loadAccounts();
 
@@ -501,7 +541,23 @@ function runCron() {
   }
 
   console.log("🚀 " + SCRIPT_NAME + " " + SCRIPT_VERSION);
-  console.log("账号数: " + accounts.length);
+  console.log("保存账号数: " + accounts.length);
+  var savedCount = accounts.length;
+  try {
+    accounts = selectEnabledAccounts(accounts);
+  } catch (e) {
+    console.log("[GLaDOS] " + e.message);
+    notify("GLaDOS", "账号开关读取失败", e.message);
+    $done();
+    return;
+  }
+  var skipped = savedCount - accounts.length;
+  console.log("本次启用: " + accounts.length + " | 已跳过: " + skipped);
+  if (!accounts.length) {
+    notify("GLaDOS", "本次无启用账号", "已按账号开关跳过 " + skipped + " 个账号");
+    $done();
+    return;
+  }
   console.log("------------------------------------");
 
   var results = [];
@@ -543,9 +599,11 @@ function runCron() {
       console.log("Browser   : " + pending);
       console.log("Failed    : " + fail);
       console.log("Removed   : " + removed.length);
+      console.log("Skipped   : " + skipped);
 
       var body = "账号 " + results.length + " | ✅" + ok + " 🔁" + dup + " 🌐" + pending + " ❌" + fail;
       if (removed.length) body += " | 清理 " + removed.length;
+      if (skipped) body += " | 已关闭 " + skipped;
       notify("GLaDOS", pending ? "部分账号需要网页验证" : "签到完成", body);
 
       for (var r = 0; r < results.length; r++) {
