@@ -1,6 +1,6 @@
 /******************************
 脚本功能：GLaDOS / Railgun 自动签到 + 积分兑换（Loon 专用）
-Version  : v1.5.1-loon
+Version  : v1.5.2-loon
 更新时间：2026-11-18
 仓库    ：GUIEROOR/Scripthub
 Platform : Loon
@@ -15,7 +15,7 @@ Platform : Loon
 ******************************/
 
 var SCRIPT_NAME = "GLaDOS Loon";
-var SCRIPT_VERSION = "v1.5.1-loon";
+var SCRIPT_VERSION = "v1.5.2-loon";
 var STORE_KEY = "GLaDOS_Loon_Accounts_v140";
 var EXCHANGE_PLAN = "plan500";
 var EXCHANGE_MIN_POINTS = 500;
@@ -86,7 +86,7 @@ function httpRequest(opts) {
     var method = String(opts.method || "GET").toUpperCase();
     var cb = function (err, resp, body) {
       if (err) {
-        resolve({ ok: false, statusCode: 0, data: null, raw: "", error: String(err) });
+        resolve({ ok: false, statusCode: 0, data: null, raw: "", error: typeof err === "string" ? err : JSON.stringify(err) });
         return;
       }
       var statusCode = resp && (resp.statusCode || resp.status) || 0;
@@ -110,7 +110,6 @@ function apiRequest(domain, cookie, path, method, body, userAgent) {
   var opts = {
     url: "https://" + domain + path,
     method: method || "GET",
-    timeout: 10,
     headers: {
       "Accept": "application/json, text/plain, */*",
       "Origin": "https://" + domain,
@@ -196,6 +195,7 @@ function getStatus(domain, cookie, userAgent) {
   return apiRequest(domain, cookie, "/api/user/status", "GET", undefined, userAgent).then(function (resp) {
     var parsed = parseStatusResponse(resp);
     parsed.statusCode = resp.statusCode;
+    parsed.message = responseMessage(resp, "查询登录状态", [typeof cookie === "object" ? cookie.value : cookie]);
     return parsed;
   });
 }
@@ -378,7 +378,7 @@ function captureCookie() {
   getStatus(domain, cookie, userAgent).then(function (status) {
     if (!status.valid) {
       console.log("[GLaDOS] Cookie 验证失败，未写入存储。HTTP=" + status.statusCode);
-      notify("GLaDOS 抓包", "Cookie 未保存", "未能识别登录账号，请保持登录状态后刷新控制台页面");
+      notify("GLaDOS 抓包", "Cookie 未保存", status.message);
       $done({});
       return;
     }
@@ -412,8 +412,8 @@ function runOne(account) {
         invalid: true,
         explicitInvalid: before.explicitInvalid,
         code: -9,
-        status: "Cookie 验证失败",
-        message: "HTTP " + before.statusCode,
+        status: before.explicitInvalid ? "登录状态已失效" : "登录状态查询失败",
+        message: before.message,
         earnedPoints: null,
         totalPoints: "N/A",
         daysAfter: "N/A",
