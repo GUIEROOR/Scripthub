@@ -1,13 +1,13 @@
-#!name=GLaDOS 自动签到 v1.6.0 Loon
-#!desc=GLaDOS / Railgun 自动签到 + 积分兑换｜识别网页验证并提示手动签到｜Railgun独立签到｜分站显示积分和连签
+#!name=GLaDOS 自动签到 v1.6.1 Loon
+#!desc=GLaDOS / Railgun 自动签到 + 积分兑换｜点击账号通知打开签到页｜Railgun独立签到｜分站显示积分和连签
 #!author=GUIEROOR / Curtinp118
 #!homepage=https://github.com/GUIEROOR/Scripthub
 #!icon=https://raw.githubusercontent.com/fmz200/wool_scripts/main/icons/apps/GlaDos.png
 #!tag=Check-in
 
 [Script]
-http-request ^https://(glados\.network|railgun\.info|glados\.vip|glados\.one|glados\.space)/(console/account(?:[/?#].*)?|api/user/(?:status|points)(?:[?#].*)?)$ script-path=https://raw.githubusercontent.com/GUIEROOR/Scripthub/main/scripts/glados/glados-loon.js?v=1.6.0, requires-body=false, timeout=15, tag=GLaDOS抓包v1.6.0, enable=true
-cron "30 6 * * *" script-path=https://raw.githubusercontent.com/GUIEROOR/Scripthub/main/scripts/glados/glados-loon.js?v=1.6.0, timeout=120, tag=GLaDOS签到v1.6.0, enable=true
+http-request ^https://(glados\.network|railgun\.info|glados\.vip|glados\.one|glados\.space)/(console/account(?:[/?#].*)?|api/user/(?:status|points)(?:[?#].*)?)$ script-path=https://raw.githubusercontent.com/GUIEROOR/Scripthub/main/scripts/glados/glados-loon.js?v=1.6.1, requires-body=false, timeout=15, tag=GLaDOS抓包v1.6.1, enable=true
+cron "30 6 * * *" script-path=https://raw.githubusercontent.com/GUIEROOR/Scripthub/main/scripts/glados/glados-loon.js?v=1.6.1, timeout=120, tag=GLaDOS签到v1.6.1, enable=true
 
 [MITM]
 hostname = glados.network, railgun.info, glados.vip, glados.one, glados.space
