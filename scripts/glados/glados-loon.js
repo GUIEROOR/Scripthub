@@ -134,17 +134,17 @@ function apiRequest(domain, cookie, path, method, body, userAgent) {
 
 // Keep challenge-issued session cookies inside this account's request sequence.
 function mergeResponseCookies(original, setCookie) {
-  var pairs = String(original || "").split(/;\\s*/).filter(Boolean);
+  var pairs = String(original || "").split(/;\s*/).filter(Boolean);
   var updates = Array.isArray(setCookie) ? setCookie :
-    String(setCookie).split(/,(?=\\s*[^;,=\\s]+=[^;,]*)/);
+    String(setCookie).split(/,(?=\s*[^;,=\s]+=[^;,]*)/);
   updates.forEach(function (line) {
     var pair = String(line).split(";")[0].trim();
     var equals = pair.indexOf("=");
     if (equals < 1) return;
     var name = pair.slice(0, equals);
     pairs = pairs.filter(function (existing) { return existing.slice(0, existing.indexOf("=")) !== name; });
-    var expired = /;\\s*max-age\\s*=\\s*0(?:;|$)/i.test(line);
-    var expires = String(line).match(/;\\s*expires=([^;]+)/i);
+    var expired = /;\s*max-age\s*=\s*0(?:;|$)/i.test(line);
+    var expires = String(line).match(/;\s*expires=([^;]+)/i);
     if (expires && Date.parse(expires[1]) <= Date.now()) expired = true;
     if (!expired) pairs.push(pair);
   });
@@ -166,7 +166,7 @@ function responseMessage(resp, stage, secrets) {
   (secrets || []).filter(Boolean).forEach(function (secret) {
     text = text.split(String(secret)).join("[已隐藏]");
   });
-  return text.replace(/[\\r\\n\\t]+/g, " ").slice(0, 600);
+  return text.replace(/[\r\n\t]+/g, " ").slice(0, 600);
 }
 
 function parseStatusResponse(resp) {
