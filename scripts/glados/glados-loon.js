@@ -1,7 +1,7 @@
 /******************************
 脚本功能：GLaDOS / Railgun 自动签到 + 积分兑换（Loon 专用）
-Version  : v1.5.0-loon
-更新时间：2026-11-06
+Version  : v1.5.1-loon
+更新时间：2026-11-18
 仓库    ：GUIEROOR/Scripthub
 Platform : Loon
 
@@ -15,7 +15,7 @@ Platform : Loon
 ******************************/
 
 var SCRIPT_NAME = "GLaDOS Loon";
-var SCRIPT_VERSION = "v1.5.0-loon";
+var SCRIPT_VERSION = "v1.5.1-loon";
 var STORE_KEY = "GLaDOS_Loon_Accounts_v140";
 var EXCHANGE_PLAN = "plan500";
 var EXCHANGE_MIN_POINTS = 500;
@@ -96,6 +96,7 @@ function httpRequest(opts) {
         statusCode: statusCode,
         data: safeJsonParse(raw),
         raw: raw,
+        headers: resp && resp.headers || {},
         error: ""
       });
     };
@@ -109,19 +110,63 @@ function apiRequest(domain, cookie, path, method, body, userAgent) {
   var opts = {
     url: "https://" + domain + path,
     method: method || "GET",
+    timeout: 10,
     headers: {
       "Accept": "application/json, text/plain, */*",
       "Origin": "https://" + domain,
       "Referer": "https://" + domain + (path.indexOf("/api/user/checkin") === 0 ? "/console/checkin" : "/console/account"),
       "User-Agent": userAgent || UA,
-      "Cookie": cookie
+      "Cookie": typeof cookie === "object" ? cookie.value : cookie
     }
   };
   if (body !== undefined) {
     opts.headers["Content-Type"] = "application/json;charset=UTF-8";
     opts.body = JSON.stringify(body);
   }
-  return httpRequest(opts);
+  return httpRequest(opts).then(function (resp) {
+    if (cookie && typeof cookie === "object") {
+      var setCookie = getHeader(resp.headers, "set-cookie");
+      if (setCookie) cookie.value = mergeResponseCookies(cookie.value, setCookie);
+    }
+    return resp;
+  });
+}
+
+// Keep challenge-issued session cookies inside this account's request sequence.
+function mergeResponseCookies(original, setCookie) {
+  var pairs = String(original || "").split(/;\\s*/).filter(Boolean);
+  var updates = Array.isArray(setCookie) ? setCookie :
+    String(setCookie).split(/,(?=\\s*[^;,=\\s]+=[^;,]*)/);
+  updates.forEach(function (line) {
+    var pair = String(line).split(";")[0].trim();
+    var equals = pair.indexOf("=");
+    if (equals < 1) return;
+    var name = pair.slice(0, equals);
+    pairs = pairs.filter(function (existing) { return existing.slice(0, existing.indexOf("=")) !== name; });
+    var expired = /;\\s*max-age\\s*=\\s*0(?:;|$)/i.test(line);
+    var expires = String(line).match(/;\\s*expires=([^;]+)/i);
+    if (expires && Date.parse(expires[1]) <= Date.now()) expired = true;
+    if (!expired) pairs.push(pair);
+  });
+  return pairs.join("; ");
+}
+
+function responseMessage(resp, stage, secrets) {
+  var data = resp.data || {};
+  var details = data.data || {};
+  var code = numericValue(data.code);
+  var parts = [stage, "HTTP " + resp.statusCode, "code=" + code];
+  var message = data.message || data.error;
+  var reason = data.reason || details.reason;
+  if (typeof message === "string") parts.push(message);
+  if (typeof reason === "string") parts.push("reason=" + reason);
+  if (resp.error) parts.push("网络错误 " + resp.error);
+  if (code === 4) parts.push("请在对应域名刷新登录状态后重新抓取");
+  var text = parts.join(" | ");
+  (secrets || []).filter(Boolean).forEach(function (secret) {
+    text = text.split(String(secret)).join("[已隐藏]");
+  });
+  return text.replace(/[\\r\\n\\t]+/g, " ").slice(0, 600);
 }
 
 function parseStatusResponse(resp) {
@@ -221,6 +266,7 @@ function checkinProof(nonce) {
 }
 
 function checkin(domain, cookie, userAgent) {
+  cookie = { value: typeof cookie === "object" ? cookie.value : cookie };
   var challengePath = "/api/user/checkin/challenge";
   var waitMs = 2800;
 
@@ -230,7 +276,7 @@ function checkin(domain, cookie, userAgent) {
       var code = resp.ok ? numericValue(data.code) : null;
       var details = data.data || data;
       var points = numericValue(details.points);
-      var message = code === 4 ? "设备验证失败，请在对应域名重新抓取 Cookie" : "HTTP " + resp.statusCode + " | code=" + code;
+      var message = responseMessage(resp, "提交签到", [cookie.value, payload.nonce, payload.proof]);
       return {
         code: code === null ? -2 : code,
         status: code === 0 ? "签到成功" : code === 1 ? "重复签到" : "签到失败",
@@ -255,13 +301,13 @@ function checkin(domain, cookie, userAgent) {
       return {
         code: -3,
         status: "获取签到挑战失败",
-        message: Number(data.code) === 4 ? "设备验证失败，请在对应域名重新抓取 Cookie" :
-          "HTTP " + resp.statusCode + " | code=" + numericValue(data.code),
+        message: responseMessage(resp, "获取签到挑战", [cookie.value, nonce]),
         points: null,
         streak: null,
         mode: "challenge"
       };
     }
+    console.log("[GLaDOS] " + domain + " | 挑战已获取 | 等待 " + waitMs + " ms");
     return new Promise(function (resolve) { setTimeout(resolve, waitMs); }).then(function () {
       return submit({ token: domain, nonce: nonce, proof: checkinProof(nonce) });
     });
