@@ -37,7 +37,7 @@ function notify(title, subtitle, body, openUrl) {
 
 function checkinPageUrl(domain) {
   // Only create links to the plugin's supported hosts.
-  if (!/^(?:glados\\.(?:network|vip|one|space)|railgun\\.info)$/.test(domain)) return "";
+  if (!/^(?:glados\.(?:network|vip|one|space)|railgun\.info)$/.test(domain)) return "";
   return "https://" + domain + "/console/checkin";
 }
 
