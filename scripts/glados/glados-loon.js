@@ -1,6 +1,6 @@
 /******************************
 脚本功能：GLaDOS / Railgun 自动签到 + 积分兑换（Loon 专用）
-Version  : v1.5.2-loon
+Version  : v1.6.0-loon
 更新时间：2026-11-18
 仓库    ：GUIEROOR/Scripthub
 Platform : Loon
@@ -10,12 +10,12 @@ Platform : Loon
 2. 按邮箱识别账号，同账号重新登录自动替换旧 Cookie
 3. 使用独立存储键，不读取 v1.3.0 的旧 Cookie
 4. GLaDOS 主站域名同邮箱互通；railgun.info 作为独立会员体系单独保存和签到
-5. 使用签到挑战，区分实际得分、连签和请求错误
+5. 识别官网 Turnstile 要求，提示在网页完成验证；支持不要求网页验证的签到挑战
 6. 连续 3 次明确会话失效才移除账号
 ******************************/
 
 var SCRIPT_NAME = "GLaDOS Loon";
-var SCRIPT_VERSION = "v1.5.2-loon";
+var SCRIPT_VERSION = "v1.6.0-loon";
 var STORE_KEY = "GLaDOS_Loon_Accounts_v140";
 var EXCHANGE_PLAN = "plan500";
 var EXCHANGE_MIN_POINTS = 500;
@@ -265,6 +265,22 @@ function checkinProof(nonce) {
   }).join("");
 }
 
+function browserVerificationResult() {
+  return {
+    code: -5,
+    status: "需要网页验证",
+    message: "请在 Safari 打开对应域名的 /console/checkin，完成验证并点击签到",
+    points: null,
+    streak: null,
+    mode: "browser-required"
+  };
+}
+
+function requiresTurnstile(value) {
+  return value === true || (typeof value === "string" && value.trim() !== "" &&
+    value !== "off" && value !== "disabled" && value !== "false");
+}
+
 function checkin(domain, cookie, userAgent) {
   cookie = { value: typeof cookie === "object" ? cookie.value : cookie };
   var challengePath = "/api/user/checkin/challenge";
@@ -275,6 +291,9 @@ function checkin(domain, cookie, userAgent) {
       var data = resp.data || {};
       var code = resp.ok ? numericValue(data.code) : null;
       var details = data.data || data;
+      if (code === 5 && (data.reason === "turnstile" || details.reason === "turnstile")) {
+        return browserVerificationResult();
+      }
       var points = numericValue(details.points);
       var message = responseMessage(resp, "提交签到", [cookie.value, payload.nonce, payload.proof]);
       return {
@@ -296,6 +315,10 @@ function checkin(domain, cookie, userAgent) {
     var challenge = data.data || data;
     var nonce = challenge.nonce;
     var ttl = numericValue(challenge.ttl);
+    if (resp.ok && numericValue(data.code) === 0 && requiresTurnstile(challenge.turnstile)) {
+      console.log("[GLaDOS] " + domain + " | 官网要求 Turnstile 网页验证");
+      return browserVerificationResult();
+    }
     if (!resp.ok || numericValue(data.code) !== 0 ||
         typeof nonce !== "string" || !/^[!-~]{1,1024}$/.test(nonce) || (ttl !== null && ttl <= waitMs)) {
       return {
@@ -425,7 +448,7 @@ function runOne(account) {
 
     return checkin(domain, cookie, userAgent).then(function (ci) {
       return getPoints(domain, cookie, userAgent).then(function (pts) {
-        var exchangeText = ci.code !== 0 && ci.code !== 1 ? "跳过(签到失败)" :
+        var exchangeText = ci.code === -5 ? "跳过(等待网页验证)" : ci.code !== 0 && ci.code !== 1 ? "跳过(签到失败)" :
           pts.pointsNum === null ? "跳过(余额未知)" : "跳过(积分不足)";
         var exchangePromise = Promise.resolve(exchangeText);
 
@@ -500,23 +523,25 @@ function runCron() {
 
       var ok = results.filter(function (r) { return r.code === 0; }).length;
       var dup = results.filter(function (r) { return r.code === 1; }).length;
-      var fail = results.length - ok - dup;
+      var pending = results.filter(function (r) { return r.code === -5; }).length;
+      var fail = results.length - ok - dup - pending;
 
       console.log("------------------------------------");
       console.log("📊 Summary");
       console.log("Total     : " + results.length);
       console.log("Success   : " + ok);
       console.log("Duplicate : " + dup);
+      console.log("Browser   : " + pending);
       console.log("Failed    : " + fail);
       console.log("Removed   : " + removed.length);
 
-      var body = "账号 " + results.length + " | ✅" + ok + " 🔁" + dup + " ❌" + fail;
+      var body = "账号 " + results.length + " | ✅" + ok + " 🔁" + dup + " 🌐" + pending + " ❌" + fail;
       if (removed.length) body += " | 清理 " + removed.length;
-      notify("GLaDOS", "签到完成", body);
+      notify("GLaDOS", pending ? "部分账号需要网页验证" : "签到完成", body);
 
       for (var r = 0; r < results.length; r++) {
         var item = results[r];
-        var icon = item.code === 0 ? "✅" : item.code === 1 ? "🔁" : "❌";
+        var icon = item.code === 0 ? "✅" : item.code === 1 ? "🔁" : item.code === -5 ? "🌐" : "❌";
         var pts = item.code === 0 ? " | 本次 " + (item.earnedPoints == null ? "未知" : "+" + item.earnedPoints) : "";
         var streak = item.streak == null ? "" : " | 连签 " + item.streak + " 天";
         var detail = item.message ? item.message + " | " : "";
@@ -535,7 +560,7 @@ function runCron() {
       if (result.explicitInvalid) account.failCount = (account.failCount || 0) + 1;
       else if (!result.invalid) account.failCount = 0;
 
-      var icon = result.code === 0 ? "✅ " : result.code === 1 ? "🔁 " : "❌ ";
+      var icon = result.code === 0 ? "✅ " : result.code === 1 ? "🔁 " : result.code === -5 ? "🌐 " : "❌ ";
       var earned = result.earnedPoints == null ? "未知" : "+" + result.earnedPoints;
       console.log(icon + result.email + " | " + result.domain + " | " + result.status +
         (result.mode ? " | " + result.mode : "") +
