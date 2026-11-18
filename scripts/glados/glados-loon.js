@@ -1,6 +1,6 @@
 /******************************
 脚本功能：GLaDOS / Railgun 自动签到 + 积分兑换（Loon 专用）
-Version  : v1.6.0-loon
+Version  : v1.6.1-loon
 更新时间：2026-11-18
 仓库    ：GUIEROOR/Scripthub
 Platform : Loon
@@ -15,7 +15,7 @@ Platform : Loon
 ******************************/
 
 var SCRIPT_NAME = "GLaDOS Loon";
-var SCRIPT_VERSION = "v1.6.0-loon";
+var SCRIPT_VERSION = "v1.6.1-loon";
 var STORE_KEY = "GLaDOS_Loon_Accounts_v140";
 var EXCHANGE_PLAN = "plan500";
 var EXCHANGE_MIN_POINTS = 500;
@@ -28,8 +28,17 @@ function safeJsonParse(str) {
   try { return JSON.parse(str); } catch (_) { return null; }
 }
 
-function notify(title, subtitle, body) {
-  try { $notification.post(title, subtitle || "", body || ""); } catch (_) {}
+function notify(title, subtitle, body, openUrl) {
+  try {
+    if (openUrl) $notification.post(title, subtitle || "", body || "", { openUrl: openUrl });
+    else $notification.post(title, subtitle || "", body || "");
+  } catch (_) {}
+}
+
+function checkinPageUrl(domain) {
+  // Only create links to the plugin's supported hosts.
+  if (!/^(?:glados\\.(?:network|vip|one|space)|railgun\\.info)$/.test(domain)) return "";
+  return "https://" + domain + "/console/checkin";
 }
 
 function readStore(key) {
@@ -545,8 +554,12 @@ function runCron() {
         var pts = item.code === 0 ? " | 本次 " + (item.earnedPoints == null ? "未知" : "+" + item.earnedPoints) : "";
         var streak = item.streak == null ? "" : " | 连签 " + item.streak + " 天";
         var detail = item.message ? item.message + " | " : "";
+        var openUrl = checkinPageUrl(item.domain);
+        var action = item.code === -5 ?
+          "点击打开签到页，请核对网页邮箱为 " + item.email + "。页面使用浏览器当前登录账号。\n" : "";
         notify(icon + " " + item.email, item.domain + " | " + item.status + pts,
-          detail + "剩余 " + item.daysAfter + " | 积分 " + item.totalPoints + streak + " | " + item.exchange);
+          action + detail + "剩余 " + item.daysAfter + " | 积分 " + item.totalPoints + streak + " | " + item.exchange,
+          openUrl);
       }
 
       $done();
